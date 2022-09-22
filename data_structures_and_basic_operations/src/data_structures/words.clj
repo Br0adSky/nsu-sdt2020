@@ -1,59 +1,49 @@
-(ns data_structures.words (:gen-class))
+(ns data_structures.words
+  (:gen-class))
 
-;;функция присоединяет букву i ко всем элементам coll
-(defn create-word-by-letter
-  ([word letter]
-   (if
-     (not (= (.substring word (- (.length word) 1)) letter))
-     (.concat word letter)
-     )
-   )
-  )
-
-; some-function [a (abc)]
-; concat (conj (some-function a (bc) -> (ab ac)) nil)  -> (nil ab ac)
-; some-function [a (bc)]
-; concat (conj (some-function a (c) -> (ac)) ab  -> (ab (ac))) -> (ab ac)
-; some-function [a (c)]
-; concat (conj (some-function a () -> nil) ac  -> (ac))
-; some-function [a ()] -> nil
-(defn create-words-by-letter
-  [letter words]
-  (if
-    (> (count words) 0)
-    (if
-      (not (= (create-word-by-letter (first words) letter) nil))
-      (concat (conj (create-words-by-letter letter (rest words)) (create-word-by-letter (first words) letter)))
-      (create-words-by-letter letter (rest words))
-      )
-    )
-  )
+(def alphabet '(:a :b :c))
 
 
-;склеивает массивы слов, где в начале стоит i буква афавита
-(defn search-by-index [i alphabet words]
-  (if
-    (< i (count alphabet))
-    (concat
-      (create-words-by-letter (nth alphabet i) words)
-      (search-by-index (inc i) alphabet words))
-    )
-  )
+(defn create-start-words
+  "Создает слова размерностью с одно значение алфавита"
+  ([] (create-start-words (rest alphabet) (list (list (first alphabet)))))
+  ([alphabet1 result]
+   (if (empty? alphabet1)
+     result
+     (create-start-words (rest alphabet1) (cons (list (first alphabet1)) result)))))
 
-; берется элемент по i индексу из массива coll = алфавит (при изначальном вызове = 0)
-; кладется в some-function вместе с алфавитом
-; в рекурсии склеивается с some-function вместе с алфавитом, где i + 1 (проверка, что i < coll.length)
-; в some-function сравнивается, что длина алфавита > 0
-; склеивается элемент по i индексу и текущая голова переданного в функцию списка (если они не одинаковые)
-; в рекурсию передается хвост списка
-; массивы склеиваются (одна буква с остальными) *
-; массивы склеиваются (остальные буквы (*) между собой)
-(defn one_one
-  [n alphabet words]
-  (if (> n (.length (first words)))
-    (one_one n alphabet (search-by-index 0 alphabet words))
-    words)
-  )
 
-(defn all-words [n alphabet]
-  (vec (one_one n alphabet alphabet)))
+
+(defn add-new-word
+  "Добавляет новое слово к списку существующих"
+  [letter word words]
+  (cons (cons letter word) words))
+
+(defn add-alphabet-to-word
+  "Добавляет алфавит к слову"
+  ([word] (add-alphabet-to-word word alphabet (list)))
+  ([word alphabet1 result]
+   (if (empty? alphabet1)
+     result
+     (if (= (first word) (first alphabet1))
+       (add-alphabet-to-word word (rest alphabet1) result)
+       (add-alphabet-to-word word (rest alphabet1) (add-new-word (first alphabet1) word result))))))
+
+(defn increment-words
+  "Увелечение всех слов на новую букву из алфавита"
+  ([words] (increment-words words (list)))
+  ([words result]
+   (if (empty? words)
+     result
+     (increment-words (rest words) (concat result (add-alphabet-to-word (first words)))))))
+
+;n тоже можно через def вынести
+(defn iterate-words
+  "Проверка соотвествия длины слова"
+  ([n] (iterate-words n (create-start-words)))
+  ([n words]
+   (if (= (count (first words)) n)
+     words
+     (iterate-words n (increment-words words)))))
+
+(println (iterate-words 3))

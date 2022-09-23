@@ -1,37 +1,36 @@
 (ns data_structures.words2)
 
-(defn add-letter-to-word
-  [word letter]
-  (if (not (= (.substring word
-                          (- (.length word) 1))
-              letter))
-    (.concat word letter)))
+(def alphabet '(:a :b :c))
 
-(defn create-words-by-letter
-  ([letter words] (create-words-by-letter letter words (list)))
-  ([letter words acc]
-   (if (> (count words) 0)
-     (if (not (= (add-letter-to-word (first words) letter) nil))
-       (recur letter (rest words) (cons (add-letter-to-word (first words) letter)
-                                        acc))
-       (recur letter (rest words) acc))
-     acc)))
+(defn add-new-word
+  "Добавляет новое слово к списку существующих"
+  [letter word words]
+  (cons (cons letter word) words))
 
-(defn search-by-index
-  ([i alphabet words] (search-by-index i alphabet words (list)))
-  ([i alphabet words acc]
-   (if (< i (count alphabet))
-     (recur (inc i) alphabet words (concat
-                                     (create-words-by-letter (nth alphabet i) words)
-                                     acc))
-     acc)))
+(defn add-alphabet-to-word
+  "Добавляет алфавит к слову"
+  [word]
+  (loop [iterated-alphabet alphabet
+         result (list)]
+   (if (empty? iterated-alphabet)
+     result
+     (if (= (first word) (first iterated-alphabet))
+       (recur (rest iterated-alphabet) result)
+       (recur (rest iterated-alphabet) (add-new-word (first iterated-alphabet) word result))))))
 
-(defn one-two
-  [n alphabet words]
-  (if (> n (.length (first words)))
-    (recur n alphabet (search-by-index 0 alphabet words))
-    words)
-  )
+(defn increment-words
+  "Увелечение всех слов на новую букву из алфавита"
+  [words]
+  (loop [iterated-words words
+         result (list)]
+   (if (empty? iterated-words)
+     result
+     (recur (rest iterated-words) (concat result (add-alphabet-to-word (first iterated-words)))))))
 
-(defn all-words [n alphabet]
-  (vec (one-two n alphabet alphabet)))
+(defn iterate-words
+  "Проверка соотвествия длины слова"
+  [n]
+  (loop [words (add-alphabet-to-word (list))]
+   (if (= (count (first words)) n)
+     words
+     (recur (increment-words words)))))

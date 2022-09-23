@@ -26,7 +26,6 @@
      result
      (increment-words (rest words) (concat result (add-alphabet-to-word (first words)))))))
 
-;n тоже можно через def вынести
 (defn iterate-words
   "Проверка соотвествия длины слова"
   ([n] (iterate-words n (add-alphabet-to-word (list))))

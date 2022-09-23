@@ -3,17 +3,6 @@
 
 (def alphabet '(:a :b :c))
 
-
-(defn create-start-words
-  "Создает слова размерностью с одно значение алфавита"
-  ([] (create-start-words (rest alphabet) (list (list (first alphabet)))))
-  ([alphabet1 result]
-   (if (empty? alphabet1)
-     result
-     (create-start-words (rest alphabet1) (cons (list (first alphabet1)) result)))))
-
-
-
 (defn add-new-word
   "Добавляет новое слово к списку существующих"
   [letter word words]
@@ -40,10 +29,8 @@
 ;n тоже можно через def вынести
 (defn iterate-words
   "Проверка соотвествия длины слова"
-  ([n] (iterate-words n (create-start-words)))
+  ([n] (iterate-words n (add-alphabet-to-word (list))))
   ([n words]
    (if (= (count (first words)) n)
      words
      (iterate-words n (increment-words words)))))
-
-(println (iterate-words 3))

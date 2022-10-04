@@ -18,4 +18,4 @@
 
 (defn iterate-words
   "Увеличивает число слов, пока длина не станет = n"
-  [n] (nth (iterate increment-words (add-new-word alphabet (list))) (dec n)))
+  [n] (nth (iterate increment-words (list (list))) n))

@@ -11,5 +11,5 @@
 
 (deftest test_standart_words_impl
   (testing "Testing words impls using map/filter/iterate"
-    (is (my-contains? (words_impl/iterate-words 2) '(:a :b)))
-    (is (my-contains? (words_impl/iterate-words 1) '(:a)))))
+    (is (my-contains? (words_impl/iterate-words 2 '(:a :b :c)) '(:a :b)))
+    (is (my-contains? (words_impl/iterate-words 1 '(:a :b :c)) '(:a)))))

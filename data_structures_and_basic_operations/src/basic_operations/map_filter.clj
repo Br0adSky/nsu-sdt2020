@@ -1,5 +1,4 @@
 (ns basic-operations.map_filter)
-(def alphabet '(:a :b :c))
 
 (defn add-new-word
   "Создает список новых слов из переданного слова"
@@ -8,14 +7,16 @@
 
 (defn add-alphabet-to-word
   "Создает список возможных слов"
-  [word]
+  [word alphabet]
   (add-new-word (filter #(not (= (first word) %)) alphabet) word))
 
 (defn increment-words
   "Возвращает список слов, увеличенных на алфавит"
-  [words]
-  (apply concat (map #(add-alphabet-to-word %) words)))
+  [words alphabet]
+  (apply concat (map #(add-alphabet-to-word % alphabet) words)))
 
 (defn iterate-words
   "Увеличивает число слов, пока длина не станет = n"
-  [n] (nth (iterate increment-words (list (list))) n))
+  [n alphabet] (nth (iterate (fn [word] (increment-words word alphabet))
+                             (list (list)))
+                    n))

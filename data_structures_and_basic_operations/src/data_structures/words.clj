@@ -1,7 +1,6 @@
 (ns data_structures.words
   (:gen-class))
 
-(def alphabet '(:a :b :c))
 
 (defn add-new-word
   "Добавляет новое слово к списку существующих"
@@ -10,7 +9,7 @@
 
 (defn add-alphabet-to-word
   "Добавляет алфавит к слову"
-  ([word] (add-alphabet-to-word word alphabet (list)))
+  ([word alphabet] (add-alphabet-to-word word alphabet (list)))
   ([word alphabet1 result]
    (if (empty? alphabet1)
      result
@@ -20,16 +19,16 @@
 
 (defn increment-words
   "Увелечение всех слов на новую букву из алфавита"
-  ([words] (increment-words words (list)))
-  ([words result]
+  ([words alphabet] (increment-words words (list) alphabet))
+  ([words result alphabet]
    (if (empty? words)
      result
-     (increment-words (rest words) (concat result (add-alphabet-to-word (first words)))))))
+     (increment-words (rest words) (concat result (add-alphabet-to-word (first words) alphabet)) alphabet))))
 
 (defn iterate-words
   "Проверка соотвествия длины слова"
-  ([n] (iterate-words n (add-alphabet-to-word (list))))
-  ([n words]
-   (if (= (count (first words)) n)
+  ([n alphabet] (iterate-words (dec n) (add-alphabet-to-word (list) alphabet) alphabet))
+  ([n words alphabet]
+   (if (= 0 n)
      words
-     (iterate-words n (increment-words words)))))
+     (iterate-words (dec n) (increment-words words alphabet) alphabet))))

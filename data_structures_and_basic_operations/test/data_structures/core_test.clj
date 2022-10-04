@@ -7,6 +7,6 @@
 (deftest testlab1_1
 
   (testing "Testing lab1_1"
-    (is (my-contains? (one_onelab/iterate-words 2) '(:b :c)))
-    (is (my-contains? (one_twolab/iterate-words 2) '(:b :c)))
-    (is (contains-all? (one_onelab/iterate-words 2) (one_twolab/iterate-words 2)))))
+    (is (my-contains? (one_onelab/iterate-words 2 '(:a :b :c )) '(:b :c)))
+    (is (my-contains? (one_twolab/iterate-words 2 '(:a :b :c )) '(:b :c)))
+    (is (contains-all? (one_onelab/iterate-words 2 '(:a :b :c )) (one_twolab/iterate-words 2 '(:a :b :c ))))))

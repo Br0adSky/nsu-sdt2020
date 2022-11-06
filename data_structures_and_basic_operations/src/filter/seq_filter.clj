@@ -31,7 +31,3 @@
     ))
 (defn my-concat [seq]
   (apply concat seq))
-
-(defn main [seq task-count batch-count pred]
-  (apply concat (apply concat (map #(map deref %) (map doall (to-feature batch-count pred
-                                                                         (to-chunks seq task-count)))))))

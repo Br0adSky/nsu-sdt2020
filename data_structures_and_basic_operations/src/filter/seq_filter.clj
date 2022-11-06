@@ -29,5 +29,3 @@
     (apply concat)
     (apply concat)
     ))
-(defn my-concat [seq]
-  (apply concat seq))

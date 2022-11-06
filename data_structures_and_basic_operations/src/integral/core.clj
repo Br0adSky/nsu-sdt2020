@@ -2,7 +2,7 @@
 (defn one-trapeze [start finish step f acc]
   (+ acc (* step (/ (+ (f start) (f finish)) 2))))
 
-(def memo-trapeze
+(def ^:private memo-trapeze
   (memoize one-trapeze))
 
 (defn count-integral [acc current step f integral-func]
@@ -16,5 +16,4 @@
   (fn [x]
     (Thread/sleep 1)
     (* x 2)))
-
 

@@ -1,41 +1,37 @@
-(ns filter.seq-filter)
-(def future-count
-  4)
+(ns filter.seq-filter
+  (:require [filter.filter :as default-filter]))
 
-(defn my-filter
-  [pred f start]
-  (lazy-seq (let [a (f start)]
-              (if (pred a)
-                (cons a (my-filter pred f a))
-                (my-filter pred f a)))))
+(defn future-filter [pred seq]
+  (future (default-filter/my-filter pred seq)))
 
-(defn future-filter [pred f start]
-  (future (my-filter pred f start)))
+(defn to-feature [batch-count pred seq]
+  (lazy-seq (cons (map #(future-filter pred %) (take batch-count seq))
+                  (to-feature batch-count pred (drop batch-count seq)))))
 
-(defn size-of-colls [n]
-  (int (/ n future-count)))
-
-(defn get-colls [end]
-  (let [part (size-of-colls end)]
-    (loop [acc1 part
-           acc (list 0)]
-      (if (= (- future-count 1) (count acc))
-        (reverse (cons (- end acc1) acc))
-        (recur (+ part acc1) (cons acc1 acc))))))
+(defn to-chunks [seq task-count]
+  (lazy-seq (cons (take task-count seq)
+                  (to-chunks (drop task-count seq)
+                             task-count))))
 
 (defn filter-pred [n]
   (Thread/sleep 10)
   (even? n))
-;можно попробовать каждое новое значение отфильтрованной последовательности складывать на отдельную ноду, но встает вопрос, как потом этим
-;последовательностям делать deref и вообще совмещать... concat умеет склеивать lazy-seq?
-(defn main [pred f start end]
-  (->> (get-colls end)
-       (map #(future-filter pred f %))
-       (doall)
-       (map deref)
-       (reduce concat)
-       (doall)))
 
-(println (take 5 (my-filter even? inc 1)))
-(println (take 5 (filter even? (iterate inc 1))))
-(println (main even? inc 1 5))
+(defn main1 [seq task-count batch-count pred]
+  (->>
+    ;seq: (chunk1) (chunk2) (chunk3)...
+    (to-chunks seq task-count)
+    ;seq: (chunks1-3 batched to filtered feature) (chunks4-6 batched to feature) ...
+    (to-feature batch-count pred)
+    (map doall)
+    ;seq: (chunks1-3 derefed from feature)...
+    (map #(map deref %))
+    (apply concat)
+    (apply concat)
+    ))
+(defn my-concat [seq]
+  (apply concat seq))
+
+(defn main [seq task-count batch-count pred]
+  (apply concat (apply concat (map #(map deref %) (map doall (to-feature batch-count pred
+                                                                         (to-chunks seq task-count)))))))

@@ -1,17 +1,14 @@
 (ns filter.seq-filter
   (:require [filter.filter :as default-filter]))
 
-(defn future-filter [pred seq]
-  (future (default-filter/my-filter pred seq)))
 
 (defn to-feature [batch-count pred seq]
-  (lazy-seq (cons (map #(future-filter pred %) (take batch-count seq))
+  (lazy-seq (cons (map #(default-filter/future-filter pred %) (take batch-count seq))
                   (to-feature batch-count pred (drop batch-count seq)))))
 
 (defn to-chunks [seq task-count]
-  (lazy-seq (cons (take task-count seq)
-                  (to-chunks (drop task-count seq)
-                             task-count))))
+  (lazy-seq (let [splitted (split-at task-count seq)]
+              (cons (first splitted) (to-chunks (second splitted) task-count)))))
 
 (defn filter-pred [n]
   (Thread/sleep 10)

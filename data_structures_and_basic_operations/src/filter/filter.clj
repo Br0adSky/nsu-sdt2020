@@ -1,36 +1,32 @@
 (ns filter.filter)
 
-(defn my-filter [pred coll]
-  (reduce (fn [acc i]
-            (if (pred i)
-              (conj acc i)
-              acc))
-          (vec '())
-          coll))
+(defn future-filter [pred list]
+  (future (doall (filter pred list))))
 
-(defn future-filter [list pred]
-  (future (my-filter pred list)))
+(defn dec-or-zero [n]
+  (if (zero? n)
+    n
+    (dec n)))
 
-(defn size-of-colls [n future-count]
-  (int (/ n future-count)))
+(defn get-colls
+  ([coll future-count]
+   (let [coll-size (count coll)
+         quot (quot coll-size future-count)
+         rem (rem coll-size future-count)]
+     (get-colls coll quot rem)))
 
-(defn get-colls [coll future-count]
-  (let [coll-size (count coll)
-        part (size-of-colls coll-size future-count)
-        acc-start (vec '())]
-    (if (< coll-size future-count)
-      (conj acc-start coll)
-      (loop [current-state coll
-             acc acc-start]
-        (if (= (dec future-count) (count acc))
-          (conj acc current-state)
-          (recur (drop part current-state)
-                 (conj acc (take part current-state))))))))
+  ([coll quot rem]
+  (lazy-seq
+    (when (not-empty coll)
+      (if (zero? rem)
+        (cons (take quot coll) (get-colls (nthrest coll quot) quot rem))
+        (cons (take (inc quot) coll) (get-colls (nthrest coll (inc quot)) quot (dec-or-zero rem))))))))
+
 
 (defn main [items pred future-count]
   (->> (get-colls items future-count)
        (map #(future-filter % pred))
        (doall)
        (map deref)
-       (reduce concat)
+       (apply concat)
        (doall)))

@@ -97,43 +97,51 @@
   [expr]
   (second expr))
 
+(defn- get-inside [expr fun]
+  (fn [expr-inside] (->> (args expr-inside)
+                         (map fun)
+                         (cons (first expr)))))
+
+(defn- get-rule [expr rules]
+  ((some #(if ((first %) expr)
+            (second %)
+            false)
+         rules) expr))
+
+(defn- not-const-or-var [expr]
+  (not (or (constant? expr) (variable? expr))))
+
 (defn print-logic
   "Печать выражения"
   [expr]
   (let [print-rules (list
-                      [(fn [expr] (or (constant? expr) (variable? expr))) (fn [expr] (print (arg expr)))]
-                      [->? (fn [expr] (do (print "(")
-                                          (print-logic (first (args expr)))
-                                          (print " -> ")
-                                          (print-logic (second (args expr)))
-                                          (print ")")))]
-                      [&&? (fn [expr] (do (print "(")
-                                          (print-logic (first (args expr)))
-                                          (doall (map (fn [subexpr] (do (print " && ")
-                                                                        (print-logic subexpr)))
-                                                      (rest (args expr))))
-                                          (print ")")))]
-                      [||? (fn [expr] (do (print "(")
-                                          (print-logic (first (args expr)))
-                                          (doall (map (fn [subexpr]
-                                                        (do (print " || ")
-                                                            (print-logic subexpr)))
-                                                      (rest (args expr))))
-                                          (print ")")))]
-                      [no? (fn [expr] (do (print "!") (print-logic (first (args expr)))))])]
-    ((some (fn [rule]
-             (if ((first rule) expr)
-               (second rule)
-               false))
-           print-rules)
-     expr)))
+                      [#(or (constant? %) (variable? %)) #(print (arg %))]
+                      [->? #(do (print "(")
+                                (print-logic (first (args %)))
+                                (print " -> ")
+                                (print-logic (second (args %)))
+                                (print ")"))]
+                      [&&? #(do (print "(")
+                                (print-logic (first (args %)))
+                                (doall (map (fn [subexpr] (do (print " && ")
+                                                              (print-logic subexpr)))
+                                            (rest (args %))))
+                                (print ")"))]
+                      [||? #(do (print "(")
+                                (print-logic (first (args %)))
+                                (doall (map (fn [subexpr]
+                                              (do (print " || ")
+                                                  (print-logic subexpr)))
+                                            (rest (args %))))
+                                (print ")"))]
+                      [no? #(do (print "!") (print-logic (first (args %))))])]
+    (get-rule expr print-rules)))
 
 (defn println-logic
   "Печать выражения с переводом строки"
   [expr]
   (do (print-logic expr) (println)))
 
-; Служебное
 (defn- get-first-disj-from-args [expr]
   (if (empty? expr)
     expr
@@ -142,18 +150,18 @@
         first-arg
         (recur (rest expr))))))
 
-; Служебное
 (defn- get-args-without-first-disj [expr]
-  (if (empty? expr)
-    expr
-    (let [first-arg (first expr)]
-      (if (||? first-arg)
-        (rest expr)
-        (cons first-arg (get-args-without-first-disj (rest expr)))))))
+  (lazy-seq (if (empty? expr)
+              expr
+              (let [first-arg (first expr)
+                    rest-args (rest expr)]
+                (if (||? first-arg)
+                  rest-args
+                  (cons first-arg (get-args-without-first-disj rest-args)))))))
 
 (defn simplify-associativity
   "Для аргументов args выражения, удовлетворяющих pred, раскрывает скобки; возвращает примененную операцию oper к модифицированным аргументам"
-  [args pred oper]
+  [pred oper args]
   (apply oper (reduce (fn [acc arg]
                         (if (pred arg)
                           (concat acc (rest arg))
@@ -166,40 +174,42 @@
   [expr]
   (let [simplify-rules (list
                          ; Для всех аргументов-дизъюнкций раскрыть скобки
-                         [||? (fn [expr] (apply || (args (simplify-associativity (map simplify-brackets (args expr)) ||? ||))))]
+                         [||? #(->> (args %)
+                                    (map simplify-brackets)
+                                    (simplify-associativity ||? ||)
+                                    (args)
+                                    (apply ||))]
                          ; Для всех аргументов-конъюнкций раскрыть скобки
-                         [&&? (fn [expr] (apply && (args (simplify-associativity (map simplify-brackets (args expr)) &&? &&))))]
-
-                         ; Заход вглубь
-                         [(fn [expr] (not (or (constant? expr) (variable? expr)))) #(cons (first expr) (map simplify-brackets (args %)))]
-                         [(fn [expr] true) (fn [expr] expr)])]
-    ((some (fn [rule]
-             (if ((first rule) expr)
-               (second rule)
-               false))
-           simplify-rules)
-     expr)))
+                         [&&? #(->> (args %)
+                                    (map simplify-brackets)
+                                    (simplify-associativity &&? &&)
+                                    (args)
+                                    (apply &&))]
+                         ;Заход вглубь
+                         [not-const-or-var (get-inside expr simplify-brackets)]
+                         [(fn [_] true) (fn [expr] expr)])]
+    (get-rule expr simplify-rules)))
 
 (defn distribute
   "Применить закон дистрибутивности"
   [expr]
   (let [simplify-rules (list
                          ; Для первого аргумента-дизъюнкции раскрыть скобки
-                         [&&? (fn [expr] (let [first-disj (get-first-disj-from-args (args expr))
-                                               other-expr (apply && (get-args-without-first-disj (args expr)))]
-                                           (if (empty? first-disj)
-                                             (cons (first expr) (map distribute (args expr)))
-                                             (distribute (apply || (map (fn [expr] (distribute (&& expr other-expr))) (args first-disj)))))))]
+                         [&&? (fn [inside-expr]
+                                (let [args-of-expr (args inside-expr)
+                                      first-disj (get-first-disj-from-args args-of-expr)
+                                      other-expr (apply && (get-args-without-first-disj args-of-expr))]
+                                  (if (empty? first-disj)
+                                    (cons (first inside-expr) (map distribute (args inside-expr)))
+                                    (->> (args first-disj)
+                                         (map #(distribute (&& % other-expr)))
+                                         (apply ||)
+                                         (distribute)))))]
 
-                         ; Заход вглубь
-                         [(fn [expr] (not (or (constant? expr) (variable? expr)))) #(cons (first expr) (map distribute (args %)))]
-                         [(fn [expr] true) (fn [expr] expr)])]
-    ((some (fn [rule]
-             (if ((first rule) expr)
-               (second rule)
-               false))
-           simplify-rules)
-     expr)))
+                         ;Заход вглубь
+                         [not-const-or-var (get-inside expr distribute)]
+                         [(fn [_] true) (fn [expr] expr)])]
+    (get-rule expr simplify-rules)))
 
 
 (defn simplify-negatives
@@ -207,47 +217,39 @@
   [expr]
   (let [simplify-rules (list
                          ; && -> ||; || -> &&; выражения заменяются своими отрицаниями
-                         [no? (fn [expr] (if (or (&&? (arg expr)) (||? (arg expr)))
-                                           (let [negative-arguments (map (fn [expr] (simplify-negatives (no expr))) (args (arg expr)))]
-                                             (if (&&? (arg expr))
-                                               (apply || negative-arguments)
-                                               (apply && negative-arguments)))
-                                           (no (simplify-negatives (arg expr)))))]
+                         [no? (fn [expr] (let [bool-fun (arg expr)]
+                                           (if (or (&&? bool-fun) (||? bool-fun))
+                                             (let [negative-arguments (map #(simplify-negatives (no %)) (args bool-fun))]
+                                               (if (&&? bool-fun)
+                                                 (apply || negative-arguments)
+                                                 (apply && negative-arguments)))
+                                             (no (simplify-negatives bool-fun)))))]
 
-                         ; Заход вглубь
-                         [(fn [expr] (not (or (constant? expr) (variable? expr)))) #(cons (first expr) (map simplify-negatives (args %)))]
-                         [(fn [expr] true) (fn [expr] expr)])]
-    ((some (fn [rule]
-             (if ((first rule) expr)
-               (second rule)
-               false))
-           simplify-rules)
-     expr)))
+                         ;Заход вглубь
+                         [not-const-or-var (get-inside expr simplify-negatives)]
+                         [(fn [_] true) (fn [expr] expr)])]
+    (get-rule expr simplify-rules)))
 
 (defn simplify-extra-operations
   "Избавиться от всех логических операций, содержащихся в формуле, заменив их основными: конъюнкцией, дизъюнкцией, отрицанием"
   [expr]
   (let [simplify-rules (list
                          ; A -> B = !A || B
-                         [->? (fn [expr] (|| (no (simplify-extra-operations (first (args expr))))
-                                             (simplify-extra-operations (second (args expr)))))]
-
-                         ; Заход вглубь
-                         [(fn [expr] (not (or (constant? expr) (variable? expr))))
-                          #(cons (first expr) (map simplify-extra-operations (args %)))]
-                         [(fn [expr] true) (fn [expr] expr)])]
-    ((some (fn [rule]
-             (if ((first rule) expr)
-               (second rule)
-               false))
-           simplify-rules)
-     expr)))
+                         [->? (fn [expr] (let [expr-args (args expr)]
+                                           (|| (no (simplify-extra-operations (first expr-args)))
+                                               (simplify-extra-operations (second expr-args)))))]
+                         ;Заход вглубь
+                         [not-const-or-var (get-inside expr simplify-extra-operations)]
+                         [(fn [_] true) (fn [expr] expr)])]
+    (get-rule expr simplify-rules)))
 
 (defn to-dnf
   "Приведение выражения к ДНФ"
   [expr]
-  (simplify-brackets (distribute (simplify-negatives (simplify-extra-operations expr)))))
-
+  (->> (simplify-extra-operations expr)
+       (simplify-negatives)
+       (distribute)
+       (simplify-brackets)))
 
 (let [dnf1 (|| (variable :A) (variable :B))
       dnf2 (|| (no (variable :A)) (&& (variable :A) (variable :B)))

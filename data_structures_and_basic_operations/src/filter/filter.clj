@@ -27,6 +27,5 @@
   (->> (get-colls items future-count)
        (map #(future-filter % pred))
        (doall)
-       (map deref)
-       (apply concat)
+       (mapcat deref)
        (doall)))

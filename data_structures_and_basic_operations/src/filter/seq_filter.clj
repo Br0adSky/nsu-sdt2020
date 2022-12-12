@@ -22,7 +22,6 @@
     (to-feature batch-count pred)
     (map doall)
     ;seq: (chunks1-3 derefed from feature)...
-    (map #(map deref %))
-    (apply concat)
+    (mapcat #(map deref %))
     (apply concat)
     ))
